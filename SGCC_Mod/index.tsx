@@ -1,10 +1,10 @@
 /**
  * SGCC 国家电网电量小组件 —— 设置页（Scripting 移植版）。
  *
- * 移植/维护（Scripting 版）：SylvanRoe
- * telegram: @Air_QT
- * 更新: 2026/09/05
- * 版本: 1.0.1
+ * 移植（Scripting 版）：SylvanRoe · telegram: @Air_QT
+ *维护：jpcnmm · telegram: @jpcnmm
+ * 更新: 2026/09/07
+ * 版本: 1.2.1
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
