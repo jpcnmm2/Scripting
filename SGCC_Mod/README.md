@@ -14,9 +14,7 @@
 > - version: 2.3.3
 > - update: 2026/08/11
 > - 原创UI，修改套用请注明来源
-> - 使用该脚本需 DmYY 依赖及添加重写，重写修改自作者 @Yuheng0101
-> - 重写: <https://raw.githubusercontent.com/dompling/Script/master/wsgw/index.js>
-> - 依赖: <https://raw.githubusercontent.com/dompling/Scriptable/master/Scripts/DmYY.js>
+> - 使用该脚本需配合 BoxJs 和重写订阅使用，重写修改自作者 @Yuheng0101
 >
 > 本仓库是上述原脚本在 **Scripting app** 下的移植版，保留原作者署名要求；引入、维护与改造由 SylvanRoe 完成，未附带原脚本源码。
 
@@ -35,17 +33,36 @@
 
 ## 依赖
 
-数据来自国网接口，需配合代理工具的 **wsgw 重写**（由代理层现场登录国网并返回数据）。
+数据来自国网接口，需配合代理工具的 **wsgw 重写**（由代理层现场登录国网并返回数据）。支持 Surge、Loon、Quantumult X 等 iOS 代理工具。
 
-- 重写（必须）：`https://raw.githubusercontent.com/dompling/Script/master/wsgw/index.js`
-- 依赖（原脚本使用）：`https://raw.githubusercontent.com/dompling/Scriptable/master/Scripts/DmYY.js`
+### 重写订阅
 
-### 在代理工具中开启（以 Surge / QuantumultX 为例）
+| 工具 | 订阅链接 |
+|---|---|
+| Surge | `https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/profiles/sgcc.surge.sgmodule` |
+| Loon | `https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/profiles/sgcc.loon.plugin` |
+| Quantumult X | `https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/profiles/sgcc.qx.snippet` |
 
-需要开的是 **`wsgw.sgmodule` 接口重写** 对应的重写规则（`type=http-request`），脚本主体为 `index.js`。
-在 BoxJS / 代理工具中导入并启用该重写后，本小组件即可拉取到数据。
+> 其他代理工具请使用 [Script-Hub](https://github.com/Script-Hub-Org/Script-Hub) 自行转换。
 
-> 请先开启代理 + 开启重写 + 开启 MITM，再在 Scripting 里「获取账户列表」。若 Scripting 小组件取不到数，多半是重写未生效或超时（已设为 60s，与重写侧一致）。
+### BoxJs 配置
+
+用于管理国网登录账号、密码等配置，兼容旧版 BoxJs 缓存 key：
+
+- **BoxJs 订阅链接**：`https://raw.githubusercontent.com/Yuheng0101/X/refs/heads/main/Tasks/boxjs.json`
+
+在 BoxJs 中导入上述订阅后，可在「网上国网」面板中填写登录账号和密码。
+
+### 配置步骤
+
+1. 在代理工具中导入并启用对应的重写订阅。
+2. 在 BoxJs 中导入上述订阅链接，填写国网登录账号和密码。
+3. 开启代理 + 开启重写 + 开启 MITM。
+4. 在 Scripting 里运行设置页，点「获取账户列表」拉取数据。
+
+> 若 Scripting 小组件取不到数，多半是重写未生效或超时（已设为 60s，与重写侧一致）。请先确认代理、重写、MITM 均已开启。
+>
+> BoxJs 和重写订阅的详细使用说明请参考 [网上国网重构版 README](https://github.com/Yuheng0101/X/blob/main/Tasks/95598/README.md)。
 
 ## 安装（Scripting app）
 
@@ -68,7 +85,8 @@
 | 户 1/2/3 名称 | 自定义户名，会在小组件左上方显示；留空则显示实际户名 |
 | 显示户名 | 关闭时左栏顶部显示国家电网 logo 图标 |
 | 左栏显示余额 | **后付费账户专用**。开启后左栏显示「账户余额」，关闭则显示「上期电费」。欠费时始终优先显示「待缴电费」并红色高亮，与此开关无关 |
-| 柱状图天数 | 近 N 日用电柱状图的天数（5–12） |
+| 柱状图天数 | 近 N 日用电柱状图的天数（5–14） |
+| 柱状图显示度数 | 开启后在柱顶标注用电度数（四舍五入取整），仅适用于 7 天及以下 |
 | 第一栏 / 第二栏 / 第三栏 | 每栏可选「组合一/二/三」或「阶梯电量」；选为组合时下方出现左/右栏内容 Picker |
 | 组合左/右栏内容 | 可选指标见下表「可选项指标」 |
 | 阶梯口径 | 按年累计 / 按月计算 |
@@ -121,6 +139,13 @@
 
 各地档位与政策会调整，请在「阶梯」里按自己实际电表档位填写以覆盖默认值。
 （部分地区已执行一档 260 度/月等新政，可在设置里手动改为对应值。）
+
+## 使用风险
+
+- 本项目为非官方实现，仅供学习、研究与个人自动化测试使用。
+- 脚本依赖第三方网关、网上国网页面接口和目标站点返回结构，可能因接口调整、风控策略或网络波动失效。
+- 请自行评估账号安全和运行环境可信度，不要在不可信环境中保存账号密码。
+- 若相关平台规则、接口协议或法律法规发生变化，请立即停止使用并以官方渠道为准。
 
 ## 数据来源 / 免责声明
 
