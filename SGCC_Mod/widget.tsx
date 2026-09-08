@@ -426,15 +426,12 @@ function RowRenderer({
 
 /** 左侧：户名 + 上期电费/账户余额（待缴时优先显示待缴电费） */
 function LeftPanel({ vm, settings, logoImage }: { vm: BillViewModel; settings: SGCCSettings; logoImage?: UIImage | null }) {
-  // 左栏金额显示逻辑：待缴优先 > 余额（开关开启时始终显示账户余额，无有效数据则提示错误）> 上期电费
-  const hasBalance = Number.isFinite(vm.remainFee)
+  // 左栏金额显示逻辑：待缴优先 > 余额（开关开启时始终显示账户余额）> 上期电费
+  // 开关开启后，无论接口返回的余额数据是否有效，一律显示「账户余额」+ 金额，不再回退到上期电费
   const wantBalance = settings.showBalanceForPostPaid && !vm.isOverdue
-  const showBalance = wantBalance && hasBalance
   const label = vm.isOverdue ? '待缴电费' : wantBalance ? '账户余额' : '上期电费'
-  const amount = vm.isOverdue || showBalance ? Math.abs(vm.remainFee) : vm.monthFee
+  const amount = vm.isOverdue || wantBalance ? Math.abs(vm.remainFee) : vm.monthFee
   const amountColor = vm.isOverdue ? overdueColor : valueColor
-  // 开启余额显示但未获取到有效数据时，提示错误而非回退到上期电费
-  const balanceError = wantBalance && !hasBalance
 
   // 不显示户名时，参照原脚本布局：顶部居中显示国网 logo 图标
   const showLogo = !settings.showConsName || !vm.consName
@@ -483,31 +480,25 @@ function LeftPanel({ vm, settings, logoImage }: { vm: BillViewModel; settings: S
       <Text font={10} fontWeight="semibold" foregroundStyle={labelColor}>
         {label}
       </Text>
-      {balanceError ? (
-        <Text font={14} fontWeight="semibold" foregroundStyle={overdueColor}>
-          数据获取失败
+      <HStack alignment="firstTextBaseline" spacing={2}>
+        <Text
+          font={(() => {
+            const s = amount.toFixed(2);
+            const len = s.length;
+            if (len <= 5) return 22;
+            if (len === 6) return 20;
+            return 18;
+          })()}
+          fontWeight="semibold"
+          fontDesign="rounded"
+          foregroundStyle={amountColor}
+        >
+          {amount.toFixed(2)}
         </Text>
-      ) : (
-        <HStack alignment="firstTextBaseline" spacing={2}>
-          <Text
-            font={(() => {
-              const s = amount.toFixed(2);
-              const len = s.length;
-              if (len <= 5) return 22;
-              if (len === 6) return 20;
-              return 18;
-            })()}
-            fontWeight="semibold"
-            fontDesign="rounded"
-            foregroundStyle={amountColor}
-          >
-            {amount.toFixed(2)}
-          </Text>
-          <Text font={11} fontWeight="semibold" foregroundStyle={vm.isOverdue ? overdueColor : labelColor}>
-            元
-          </Text>
-        </HStack>
-      )}
+        <Text font={11} fontWeight="semibold" foregroundStyle={vm.isOverdue ? overdueColor : labelColor}>
+          元
+        </Text>
+      </HStack>
 
       <Spacer />
 
