@@ -151,6 +151,8 @@ export interface SGCCSettings {
   showConsName: boolean
   /** 后付费用户左栏显示余额（关闭则显示上期电费） */
   showBalanceForPostPaid: boolean
+  /** 柱状图标注用电度数（仅 7 天以下生效，启用后柱子间距翻倍） */
+  showChartValues: boolean
 
   /** 中号组件第一栏显示模式 */
   row1Display: RowDisplayMode
@@ -188,6 +190,7 @@ export const DEFAULT_SETTINGS: SGCCSettings = {
   accentColor: '#3A9690',
   showConsName: true,
   showBalanceForPostPaid: false,
+  showChartValues: false,
   row1Display: 'group1',
   row2Display: 'step',
   row3Display: 'group3',

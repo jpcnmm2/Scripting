@@ -3,8 +3,6 @@
  *
  * 移植（Scripting 版）：SylvanRoe · telegram: @Air_QT
  *维护：jpcnmm · telegram: @jpcnmm
- * 更新: 2026/09/07
- * 版本: 1.2.1
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
@@ -148,12 +146,23 @@ const CORNER_R = 2    // 圆角半径 = BAR_W / 2
 const CHART_BOX_HEIGHT = 34
 /** 近日用电数值 font 20 的近似 descent，用于把柱状图底边抬到字形底边 */
 const BASELINE_DESCENT = 4
+/** 显示度数时的数值标签字号 */
+const VALUE_FONT = 9
+/** 显示度数时数值标签与柱顶的间距 */
+const VALUE_GAP = 1
 
 function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
   const bars = recentDays(data, settings.dayAmount)
   const n = bars.length
-  // 图表自然宽度 = n 根柱子 + (n-1) 个间距
-  const chartWidth = n * BAR_W + (n - 1) * BAR_GAP
+  // 是否在柱顶标注度数：需开启且天数 ≤ 7
+  const showValues = settings.showChartValues && n <= 7
+  // 间距：显示度数时柱子被 VStack 居中，实际视觉间距变大，适当减小
+  const gap = showValues ? 3 : BAR_GAP
+  // 显示度数时每项宽度需容纳两位数标签，否则会被截断
+  const VALUE_W = 16
+  const itemW = showValues ? Math.max(BAR_W, VALUE_W) : BAR_W
+  // 图表自然宽度 = n 项 + (n-1) 个间距
+  const chartWidth = n * itemW + (n - 1) * gap
   if (n === 0) {
     return (
       <Text font={11} fontWeight="semibold" foregroundStyle={labelColor} frame={{ width: chartWidth }}>
@@ -163,25 +172,33 @@ function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
   }
 
   const max = Math.max(...bars.map(b => b.elePq), 0.01)
+  // 显示度数时盒子高度增加，容纳柱顶标签
+  const boxHeight = showValues ? CHART_BOX_HEIGHT + VALUE_FONT + VALUE_GAP : CHART_BOX_HEIGHT
 
   return (
     <ZStack
       alignment="bottomLeading"
-      frame={{ width: chartWidth, height: CHART_BOX_HEIGHT }}
+      frame={{ width: chartWidth, height: boxHeight }}
       offset={{ x: 0, y: -BASELINE_DESCENT }}
     >
-      <HStack alignment="bottom" spacing={BAR_GAP}>
+      <HStack alignment="bottom" spacing={gap}>
         {bars.map(item => {
           const ratio = item.elePq / max
           // 最小高度 2pt，保证零值也可见
           const h = Math.max(ratio * CHART_H, 2)
           return (
-            <Rectangle
-              key={item.label}
-              fill={chartColor}
-              frame={{ width: BAR_W, height: h }}
-              clipShape={{ type: 'rect', cornerRadius: CORNER_R }}
-            />
+            <VStack key={item.label} alignment="center" spacing={VALUE_GAP}>
+              {showValues ? (
+                <Text font={VALUE_FONT} fontWeight="bold" foregroundStyle={labelColor} frame={{ width: VALUE_W }}>
+                  {Math.round(item.elePq)}
+                </Text>
+              ) : null}
+              <Rectangle
+                fill={chartColor}
+                frame={{ width: BAR_W, height: h }}
+                clipShape={{ type: 'rect', cornerRadius: CORNER_R }}
+              />
+            </VStack>
           )
         })}
       </HStack>

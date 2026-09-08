@@ -3,8 +3,7 @@
  *
  * 移植（Scripting 版）：SylvanRoe · telegram: @Air_QT
  *维护：jpcnmm · telegram: @jpcnmm
- * 更新: 2026/09/07
- * 版本: 1.2.1
+
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
@@ -253,7 +252,7 @@ function SettingsView() {
 
         <Section
           header={<Text>显示</Text>}
-          footer={<Text font="caption">柱状图展示最近若干天的用电量。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
+          footer={<Text font="caption">柱状图展示最近若干天的用电量。「柱状图显示度数」仅适用于 7 天及以下，启用后在柱顶标注度数。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
         >
           <Toggle
             title="显示户名"
@@ -261,9 +260,14 @@ function SettingsView() {
             onChanged={v => patch('showConsName', v)}
           />
           <Toggle
-            title="后付费显示余额"
+            title="左栏显示余额"
             value={settings.showBalanceForPostPaid}
             onChanged={v => patch('showBalanceForPostPaid', v)}
+          />
+          <Toggle
+            title="柱状图显示度数（≤7天）"
+            value={settings.showChartValues}
+            onChanged={v => patch('showChartValues', v)}
           />
           <Picker
             title="柱状图天数"
