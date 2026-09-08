@@ -275,7 +275,7 @@ function SettingsView() {
             onChanged={(v: number) => patch('dayAmount', v)}
             pickerStyle="menu"
           >
-            {[5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+            {[5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => (
               <Text key={String(n)} tag={n}>
                 {`${n} 天`}
               </Text>
