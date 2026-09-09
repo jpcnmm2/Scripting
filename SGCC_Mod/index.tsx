@@ -254,6 +254,18 @@ function SettingsView() {
           header={<Text>显示</Text>}
           footer={<Text font="caption">柱状图展示最近若干天的用电量。「柱状图显示度数」仅适用于 7 天及以下，启用后在柱顶标注度数。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
         >
+          <Picker
+            title="国网 Logo 尺寸"
+            value={settings.logoSize}
+            onChanged={(v: number) => patch('logoSize', v)}
+            pickerStyle="menu"
+          >
+            {[40, 42, 44, 46, 48, 50, 52, 54, 56].map(n => (
+              <Text key={String(n)} tag={n}>
+                {`${n}`}
+              </Text>
+            ))}
+          </Picker>
           <Toggle
             title="显示户名"
             value={settings.showConsName}
@@ -278,6 +290,18 @@ function SettingsView() {
             {[5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => (
               <Text key={String(n)} tag={n}>
                 {`${n} 天`}
+              </Text>
+            ))}
+          </Picker>
+          <Picker
+            title="近日用电小数位"
+            value={settings.dayFeeDecimals}
+            onChanged={(v: number) => patch('dayFeeDecimals', v)}
+            pickerStyle="menu"
+          >
+            {[0, 1, 2].map(n => (
+              <Text key={String(n)} tag={n}>
+                {n === 0 ? '整数' : `${n} 位`}
               </Text>
             ))}
           </Picker>

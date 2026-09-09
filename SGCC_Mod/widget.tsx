@@ -304,7 +304,7 @@ function StepRow({ step }: { step: BillViewModel['step'] }) {
 }
 
 /** 近日用电：大号数值 + 度，与柱状图并排时视觉醒目 */
-function DayFeeMetric({ vm, align = 'leading' }: { vm: BillViewModel; align?: 'leading' | 'trailing' }) {
+function DayFeeMetric({ vm, settings, align = 'leading' }: { vm: BillViewModel; settings: SGCCSettings; align?: 'leading' | 'trailing' }) {
   return (
     <VStack alignment={align} spacing={1}>
       <Text font={10} fontWeight="semibold" foregroundStyle={labelColor} lineLimit={1}>
@@ -318,7 +318,7 @@ function DayFeeMetric({ vm, align = 'leading' }: { vm: BillViewModel; align?: 'l
           foregroundStyle={chartColor}
           lineLimit={1}
         >
-          {vm.dayFee.toFixed(2)}
+          {vm.dayFee.toFixed(settings.dayFeeDecimals)}
         </Text>
         <Text font={10} fontWeight="semibold" foregroundStyle={labelColor}>
           度
@@ -331,10 +331,12 @@ function DayFeeMetric({ vm, align = 'leading' }: { vm: BillViewModel; align?: 'l
 /** 按 MetricKey 渲染对应的内容块 */
 function MetricItem({
   vm,
+  settings,
   metricKey,
   align = 'leading',
 }: {
   vm: BillViewModel
+  settings: SGCCSettings
   metricKey: MetricKey
   align?: 'leading' | 'trailing'
 }) {
@@ -350,7 +352,7 @@ function MetricItem({
     case 'currentMonthEle':
       return <Metric label="本月电量" value={vm.currentMonthEle.toFixed(0)} unit="度" align={align} />
     case 'dayFee':
-      return <DayFeeMetric vm={vm} align={align} />
+      return <DayFeeMetric vm={vm} settings={settings} align={align} />
     case 'remainFee':
       return (
         <Metric
@@ -393,11 +395,11 @@ function GroupRow({
   return (
     <HStack alignment={hasChart ? 'bottom' : 'firstTextBaseline'} spacing={0} frame={{ maxWidth: 'infinity' }}>
       <VStack alignment="leading">
-        <MetricItem vm={vm} metricKey={leftKey} />
+        <MetricItem vm={vm} settings={settings} metricKey={leftKey} />
       </VStack>
       <Spacer />
       <VStack alignment="trailing">
-        <MetricItem vm={vm} metricKey={rightKey} align="trailing" />
+        <MetricItem vm={vm} settings={settings} metricKey={rightKey} align="trailing" />
       </VStack>
     </HStack>
   )
@@ -447,14 +449,14 @@ function LeftPanel({ vm, settings, logoImage }: { vm: BillViewModel; settings: S
               image={logoImage}
               resizable
               scaleToFit
-              frame={{ width: 50, height: 50 }}
+              frame={{ width: settings.logoSize, height: settings.logoSize }}
             />
           ) : (
             <Image
               systemName="bolt.circle.fill"
               resizable
               scaleToFit
-              frame={{ width: 50, height: 50 }}
+              frame={{ width: settings.logoSize, height: settings.logoSize }}
               foregroundStyle={accentColor}
             />
           )}
