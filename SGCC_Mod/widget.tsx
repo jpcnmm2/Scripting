@@ -167,7 +167,7 @@ const CHART_BOX_HEIGHT = 34
 /** 近日用电数值 font 20 的近似 descent，用于把柱状图底边抬到字形底边 */
 const BASELINE_DESCENT = 4
 /** 显示度数时的数值标签字号 */
-const VALUE_FONT = 9
+const VALUE_FONT = 10
 /** 显示度数时数值标签与柱顶的间距 */
 const VALUE_GAP = 1
 
@@ -209,7 +209,7 @@ function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
           return (
             <VStack key={item.label} alignment="center" spacing={VALUE_GAP}>
               {showValues ? (
-                <Text font={VALUE_FONT} fontWeight="bold" foregroundStyle={labelColor} frame={{ width: VALUE_W }}>
+                <Text font={VALUE_FONT} fontWeight="semibold" foregroundStyle={labelColor} frame={{ width: VALUE_W }}>
                   {Math.round(item.elePq)}
                 </Text>
               ) : null}
@@ -491,7 +491,7 @@ function StepRow({ step, yearUsage, barStyle }: { step: BillViewModel['step']; y
 function DayFeeMetric({ vm, settings, align = 'leading' }: { vm: BillViewModel; settings: SGCCSettings; align?: 'leading' | 'trailing' }) {
   return (
     <VStack alignment={align} spacing={1}>
-      <Text font={10} fontWeight="semibold" foregroundStyle={labelColor} lineLimit={1}>
+      <Text font={11} fontWeight="semibold" foregroundStyle={labelColor} lineLimit={1}>
         近日用电
       </Text>
       <HStack alignment="firstTextBaseline" spacing={1}>
