@@ -310,13 +310,13 @@ function StepRow({ step, yearUsage, barStyle }: { step: BillViewModel['step']; y
         // 纯色模式：原始单色进度条
         <ZStack alignment="leading">
           <Rectangle
-            fill={zone1Remain}
+            fill={lightenHex(chartHex, 0.55) as ShapeStyle}
             frame={{ width: BAR_WIDTH, height: BAR_HEIGHT }}
             clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
             offset={{ x: 0, y: 0 }}
           />
           <Rectangle
-            fill={zone1Color}
+            fill={chartHex as ShapeStyle}
             frame={{ width: usedWidth, height: BAR_HEIGHT }}
             clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
             offset={{ x: 0, y: 0 }}
