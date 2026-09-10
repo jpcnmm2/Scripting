@@ -342,7 +342,7 @@ function SettingsView() {
           header={<Text>阶梯</Text>}
           footer={
             <Text font="caption">
-              按你的实际电表档位填写，单位度。留空表示按山东口径自动（按年累计 2520/4800 度）。改动后请点右上角「保存」生效。
+              按你的实际电表档位填写，单位度。留空表示按山东口径自动（按年累计 2520/4800 度）。「阶梯百分比」选择计算方式：全量 = 占第三档上限的比例（与横条滑块同轴），阶梯 = 当前阶梯内的进度。改动后请点右上角「保存」生效。
             </Text>
           }
         >
@@ -358,6 +358,24 @@ function SettingsView() {
             value={settings.step3 > 0 ? String(settings.step3) : ''}
             onChanged={v => patch('step3', parseInt(v, 10) || 0)}
           />
+          <Picker
+            title="阶梯百分比"
+            value={settings.stepPercentMode}
+            onChanged={(v: string) => patch('stepPercentMode', v as '全量' | '阶梯')}
+            pickerStyle="menu"
+          >
+            <Text tag="全量">全量（占第三档比例）</Text>
+            <Text tag="阶梯">阶梯（当前阶梯进度）</Text>
+          </Picker>
+          <Picker
+            title="进度条样式"
+            value={settings.stepBarStyle}
+            onChanged={(v: string) => patch('stepBarStyle', v as '三色' | '纯色')}
+            pickerStyle="menu"
+          >
+            <Text tag="三色">三色（渐变过渡）</Text>
+            <Text tag="纯色">纯色（原始单色）</Text>
+          </Picker>
         </Section>
 
         <Section

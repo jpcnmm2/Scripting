@@ -41,6 +41,7 @@ import {
   Image,
   Spacer,
   Rectangle,
+  UnevenRoundedRectangle,
   Circle,
   type DynamicShapeStyle,
   type ShapeStyle,
@@ -65,6 +66,8 @@ const valueColor: DynamicShapeStyle = { light: '#1C1C1E', dark: '#F2F2F7' }
 const dividerColor: DynamicShapeStyle = { light: '#00000014', dark: '#FFFFFF14' }
 const sepGray: DynamicShapeStyle = { light: 'rgba(120,120,120,0.35)', dark: 'rgba(180,180,180,0.28)' }
 const overdueColor: ShapeStyle = '#DE2A18'
+// 弱化红色：用于超出百分比和度数数字，比 overdueColor 更柔和
+const exceedTextColor: ShapeStyle = '#C85650'
 
 const chartColor = settings.chartColor as ShapeStyle
 const accentColor = settings.accentColor as ShapeStyle
@@ -72,10 +75,14 @@ const accentColor = settings.accentColor as ShapeStyle
 /** 国网 logo 图源（参照原脚本 getLogo 默认图源） */
 const LOGO_URL = 'https://raw.githubusercontent.com/anker1209/icon/main/gjdw.png'
 
+/** 组件实际宽度（根据设备自适应） */
+const WIDGET_WIDTH = Widget.displaySize?.width ?? 329
 /** 左侧面板宽度 */
 const PANEL_WIDTH = 124
-/** 右面板内可用宽度（329 - 左面板 - 左右内边距 14 + 16） */
-const RIGHT_INNER = 329 - PANEL_WIDTH - 30
+/** 右面板左右内边距合计 */
+const RIGHT_PADDING = 30
+/** 右面板内可用宽度 */
+const RIGHT_INNER = WIDGET_WIDTH - PANEL_WIDTH - RIGHT_PADDING
 /** 阶梯条宽度 = 右面板内可用宽度 */
 const BAR_WIDTH = RIGHT_INNER
 
@@ -88,12 +95,25 @@ function lightenHex(hex: string, amount: number): string {
   return `#${to2(mix(c(0)))}${to2(mix(c(2)))}${to2(mix(c(4)))}`
 }
 
-// 阶梯条配色：一律用可靠的 6 位 hex（8 位 alpha 会被判为无效而渲成白色）
+// 阶梯条配色：三组颜色，对应三个区域
+// 区域1：0→step2（第一阶梯），区域2：step2→step3（第二阶梯），区域3：超出step3（第三阶梯+超出段）
 const chartHex = settings.chartColor
-// 剩余段（底槽）：比已用更浅的绿
-const chartRemain = lightenHex(chartHex, 0.55) as ShapeStyle
-// 刻度竖线：介于已用与剩余之间的中绿
-const chartTick = lightenHex(chartHex, 0.32) as ShapeStyle
+// 色调混合：将 hex 颜色向目标色混合指定比例
+function blendHex(hex: string, target: string, ratio: number): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex) || !/^#[0-9a-fA-F]{6}$/.test(target)) return hex
+  const c = (s: string, i: number) => parseInt(s.slice(i + 1, i + 3), 16)
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * ratio)
+  const to2 = (v: number) => v.toString(16).padStart(2, '0')
+  return `#${to2(mix(c(hex, 0), c(target, 0)))}${to2(mix(c(hex, 2), c(target, 2)))}${to2(mix(c(hex, 4), c(target, 4)))}`
+}
+// 三组颜色：绿→黄→橙，纯色不混合基色，颜色鲜明
+const zone1Color = '#34C759' as ShapeStyle  // 区域1（第一阶梯，绿色）
+const zone2Color = '#D4A800' as ShapeStyle  // 区域2（第二阶梯，暗黄色）
+const zone3Color = '#CC6600' as ShapeStyle  // 区域3（第三阶梯+超出，暗橙色）
+// 各区域剩余段（浅色底槽）
+const zone1Remain = lightenHex(chartHex, 0.6) as ShapeStyle
+const zone2Remain = lightenHex(zone2Color as string, 0.6) as ShapeStyle
+const zone3Remain = lightenHex(zone3Color as string, 0.6) as ShapeStyle
 
 /** 数值 + 单位的一组展示 */
 function Metric({
@@ -213,92 +233,256 @@ function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
  * - 圆形滑块定位当前用电位置
  * - 上方文字标注 "阶梯电量" + "第N阶梯·xx%"
  */
-function StepRow({ step }: { step: BillViewModel['step'] }) {
-  // 用实际计算档位时用到的阈值（可在设置里覆盖），保证横条刻度与文字档位一致
-  const { step2, step3 } = step
+function StepRow({ step, yearUsage, barStyle }: { step: BillViewModel['step']; yearUsage: number; barStyle: '三色' | '纯色' }) {
+  const { step2, step3, isOverLimit, maxScale } = step
 
   const BAR_HEIGHT = 8
   const TICK_WIDTH = 2
   const TICK_HEIGHT = 12
   const SLIDER_SIZE = 12
 
-  // 已用比例（相对第三档上限，保留上限 1 让滑块贴在最右）
-  const usageRatio = Math.max(0, Math.min(step.usage / step3, 1))
+  // 进度条缩放上限：不超出时=step3，超出时=usage（动态扩展）
+  const scale = maxScale
+
+  // 各段宽度
+  const seg1W = (step2 / scale) * BAR_WIDTH   // 第一档段宽
+  const seg2W = ((step3 - step2) / scale) * BAR_WIDTH  // 第二档段宽
+  const seg3W = ((step3 - 0) / scale) * BAR_WIDTH - seg1W - seg2W // 第三档段宽（不超出时到 BAR_WIDTH）
+  const exceedW = isOverLimit ? ((step.usage - step3) / scale) * BAR_WIDTH : 0 // 超出段宽
+
+  // 已用比例
+  const usageRatio = Math.max(0, Math.min(step.usage / scale, 1))
   const usedWidth = Math.max(usageRatio * BAR_WIDTH, 2)
 
-  // 刻度竖线 X 位置（按阈值等比映射到条宽）
-  const tick2X = (step2 / step3) * BAR_WIDTH
-  const tick3X = BAR_WIDTH
+  // 刻度竖线 X 位置
+  const tick2X = (step2 / scale) * BAR_WIDTH
+  const tick3X = (step3 / scale) * BAR_WIDTH
 
-  // 剩余段（底槽）：比已用更浅的绿
-  const lightChartColor = chartRemain
-  // 刻度竖线：介于已用与剩余之间的中绿
-  const stepDividerColor = chartTick
-
-  // 滑块 X：保证圆形整体落在 [0, BAR_WIDTH] 内
+  // 滑块 X
   const sliderX = Math.max(
     0,
     Math.min(BAR_WIDTH - SLIDER_SIZE, usedWidth - SLIDER_SIZE / 2),
   )
 
   const tierText = ['一', '二', '三'][step.level - 1]
+  const overColor: ShapeStyle = exceedTextColor
 
   return (
     <VStack alignment="leading" spacing={2}>
-      {/* 上方文字标注 */}
+      {/* 上方文字标注：左=当前阶梯+百分比，右=剩余/超出度数 */}
       <HStack alignment="firstTextBaseline">
-        <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
-          阶梯电量
-        </Text>
+        {isOverLimit ? (
+          <HStack alignment="firstTextBaseline" spacing={0}>
+            <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
+              第三阶梯·
+            </Text>
+            <Text font={11} fontWeight="semibold" foregroundStyle={overColor}>
+              {`${step.exceedPercent.toFixed(1)}%`}
+            </Text>
+          </HStack>
+        ) : (
+          <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
+            {`第${tierText}阶梯·${step.percent.toFixed(2)}%`}
+          </Text>
+        )}
         <Spacer />
-        <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
-          {`第${tierText}阶梯·${step.percent.toFixed(2)}%`}
-        </Text>
+        {isOverLimit ? (
+          <HStack alignment="firstTextBaseline" spacing={2}>
+            <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
+              超出
+            </Text>
+            <Text font={11} fontWeight="semibold" foregroundStyle={overColor}>
+              {step.exceed.toFixed(0)}
+            </Text>
+            <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
+              度
+            </Text>
+          </HStack>
+        ) : (
+          <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
+            {`剩余 ${step.remain.toFixed(0)} 度`}
+          </Text>
+        )}
       </HStack>
 
-      {/* 横向阶梯条：浅绿底槽（剩余） + 深绿已用 + 刻度 + 圆形滑块（ZStack 垂直居中，offset 只用于 X 定位） */}
-      <ZStack alignment="leading">
-        {/* 浅绿底槽：3 段电价区间共享的总范围，未用到的剩余段 */}
-        <Rectangle
-          fill={lightChartColor}
-          frame={{ width: BAR_WIDTH, height: BAR_HEIGHT }}
-          clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
-          offset={{ x: 0, y: 0 }}
-        />
-        {/* 深绿已用：叠在底槽左半部 */}
-        <Rectangle
-          fill={chartColor}
-          frame={{ width: usedWidth, height: BAR_HEIGHT }}
-          clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
-          offset={{ x: 0, y: 0 }}
-        />
-        {/* 刻度 1：第二阶梯起点 step2 —— 浅绿色 pill */}
-        <Rectangle
-          fill={stepDividerColor}
-          frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
-          clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
-          offset={{
-            x: Math.max(0, tick2X - TICK_WIDTH / 2),
-            y: (SLIDER_SIZE - TICK_HEIGHT) / 2,
-          }}
-        />
-        {/* 刻度 2：第三阶梯起点 step3 */}
-        <Rectangle
-          fill={stepDividerColor}
-          frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
-          clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
-          offset={{
-            x: Math.max(0, tick3X - TICK_WIDTH),
-            y: (SLIDER_SIZE - TICK_HEIGHT) / 2,
-          }}
-        />
-        {/* 圆形滑块：用中绿与两侧（深绿已用 / 浅绿剩余）都区分开，定位当前用电位置 */}
-        <Circle
-          fill={chartTick}
-          frame={{ width: SLIDER_SIZE, height: SLIDER_SIZE }}
-          offset={{ x: sliderX, y: 0 }}
-        />
-      </ZStack>
+      {/* 横向阶梯条 */}
+      {barStyle === '纯色' ? (
+        // 纯色模式：原始单色进度条
+        <ZStack alignment="leading">
+          <Rectangle
+            fill={zone1Remain}
+            frame={{ width: BAR_WIDTH, height: BAR_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
+            offset={{ x: 0, y: 0 }}
+          />
+          <Rectangle
+            fill={zone1Color}
+            frame={{ width: usedWidth, height: BAR_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: BAR_HEIGHT / 2 }}
+            offset={{ x: 0, y: 0 }}
+          />
+          <Rectangle
+            fill={lightenHex(chartHex, 0.32) as ShapeStyle}
+            frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
+            offset={{ x: Math.max(0, tick2X - TICK_WIDTH / 2), y: (SLIDER_SIZE - TICK_HEIGHT) / 2 }}
+          />
+          <Rectangle
+            fill={lightenHex(chartHex, 0.32) as ShapeStyle}
+            frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
+            offset={{ x: Math.max(0, tick3X - TICK_WIDTH), y: (SLIDER_SIZE - TICK_HEIGHT) / 2 }}
+          />
+          <Circle
+            fill={isOverLimit ? zone3Color : lightenHex(chartHex, 0.32) as ShapeStyle}
+            frame={{ width: SLIDER_SIZE, height: SLIDER_SIZE }}
+            offset={{ x: sliderX, y: 0 }}
+          />
+        </ZStack>
+      ) : (
+        // 三色模式：三段渐变色 + 已用覆盖 + 刻度 + 滑块
+        <ZStack alignment="leading">
+          {/* 底槽段1：第一档（左端圆角） */}
+          <UnevenRoundedRectangle
+            fill={zone1Remain}
+            topLeadingRadius={BAR_HEIGHT / 2}
+            bottomLeadingRadius={BAR_HEIGHT / 2}
+            topTrailingRadius={0}
+            bottomTrailingRadius={0}
+            frame={{ width: seg1W, height: BAR_HEIGHT }}
+            offset={{ x: 0, y: 0 }}
+          />
+          {/* 底槽段2：第二档 */}
+          <Rectangle
+            fill={zone2Remain}
+            frame={{ width: seg2W, height: BAR_HEIGHT }}
+            offset={{ x: seg1W, y: 0 }}
+          />
+          {/* 底槽段3：第三档（右端圆角，超出时不圆角由超出段处理） */}
+          {isOverLimit ? (
+            <Rectangle
+              fill={zone3Remain}
+              frame={{ width: seg3W, height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W, y: 0 }}
+            />
+          ) : (
+            <UnevenRoundedRectangle
+              fill={zone3Remain}
+              topLeadingRadius={0}
+              bottomLeadingRadius={0}
+              topTrailingRadius={BAR_HEIGHT / 2}
+              bottomTrailingRadius={BAR_HEIGHT / 2}
+              frame={{ width: seg3W, height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W, y: 0 }}
+            />
+          )}
+          {/* 超出段底槽（超出时才显示，右端圆角） */}
+          {isOverLimit && (
+            <UnevenRoundedRectangle
+              fill={zone3Remain}
+              topLeadingRadius={0}
+              bottomLeadingRadius={0}
+              topTrailingRadius={BAR_HEIGHT / 2}
+              bottomTrailingRadius={BAR_HEIGHT / 2}
+              frame={{ width: exceedW, height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W + seg3W, y: 0 }}
+            />
+          )}
+          {/* 已用段1：第一档已用（左端圆角） */}
+          <UnevenRoundedRectangle
+            fill={zone1Color}
+            topLeadingRadius={BAR_HEIGHT / 2}
+            bottomLeadingRadius={BAR_HEIGHT / 2}
+            topTrailingRadius={0}
+            bottomTrailingRadius={0}
+            frame={{ width: Math.min(usedWidth, seg1W), height: BAR_HEIGHT }}
+            offset={{ x: 0, y: 0 }}
+          />
+          {/* 已用段2：第二档已用 */}
+          {usedWidth > seg1W && (
+            <Rectangle
+              fill={zone2Color}
+              frame={{ width: Math.min(usedWidth - seg1W, seg2W), height: BAR_HEIGHT }}
+              offset={{ x: seg1W, y: 0 }}
+            />
+          )}
+          {/* 已用段3：第三档已用（不超出时右端圆角） */}
+          {usedWidth > seg1W + seg2W && !isOverLimit && (
+            <UnevenRoundedRectangle
+              fill={zone3Color}
+              topLeadingRadius={0}
+              bottomLeadingRadius={0}
+              topTrailingRadius={BAR_HEIGHT / 2}
+              bottomTrailingRadius={BAR_HEIGHT / 2}
+              frame={{ width: Math.min(usedWidth - seg1W - seg2W, seg3W), height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W, y: 0 }}
+            />
+          )}
+          {/* 已用段3：第三档已用（超出时直角） */}
+          {usedWidth > seg1W + seg2W && isOverLimit && (
+            <Rectangle
+              fill={zone3Color}
+              frame={{ width: Math.min(usedWidth - seg1W - seg2W, seg3W), height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W, y: 0 }}
+            />
+          )}
+          {/* 已用超出段（右端圆角） */}
+          {isOverLimit && usedWidth > seg1W + seg2W + seg3W && (
+            <UnevenRoundedRectangle
+              fill={zone3Color}
+              topLeadingRadius={0}
+              bottomLeadingRadius={0}
+              topTrailingRadius={BAR_HEIGHT / 2}
+              bottomTrailingRadius={BAR_HEIGHT / 2}
+              frame={{ width: Math.min(usedWidth - seg1W - seg2W - seg3W, exceedW), height: BAR_HEIGHT }}
+              offset={{ x: seg1W + seg2W + seg3W, y: 0 }}
+            />
+          )}
+          {/* 刻度 1：第二阶梯起点 */}
+          <Rectangle
+            fill={zone2Color}
+            frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
+            offset={{ x: Math.max(0, tick2X - TICK_WIDTH / 2), y: (SLIDER_SIZE - TICK_HEIGHT) / 2 }}
+          />
+          {/* 刻度 2：第三阶梯起点 */}
+          <Rectangle
+            fill={zone3Color}
+            frame={{ width: TICK_WIDTH, height: TICK_HEIGHT }}
+            clipShape={{ type: 'rect', cornerRadius: TICK_WIDTH / 2 }}
+            offset={{ x: Math.max(0, tick3X - TICK_WIDTH), y: (SLIDER_SIZE - TICK_HEIGHT) / 2 }}
+          />
+          {/* 圆形滑块 */}
+          <Circle
+            fill={isOverLimit ? zone3Color : step.level === 1 ? zone1Color : step.level === 2 ? zone2Color : zone3Color}
+            frame={{ width: SLIDER_SIZE, height: SLIDER_SIZE }}
+            offset={{ x: sliderX, y: 0 }}
+          />
+        </ZStack>
+      )
+
+      {/* 年度电量标注：位于滑块正下方，与滑块中心对齐，左右边缘限位防溢出 */}
+      {(() => {
+        const LABEL_W = 45
+        const sliderCenter = sliderX + SLIDER_SIZE / 2
+        let labelX = sliderCenter - LABEL_W / 2
+        labelX = Math.max(0, Math.min(labelX, BAR_WIDTH - LABEL_W))
+        return (
+          <HStack
+            spacing={1}
+            alignment="firstTextBaseline"
+            frame={{ width: LABEL_W, alignment: 'center' as const }}
+            offset={{ x: labelX, y: -1 }}
+          >
+            <Text font={11} fontWeight="bold" foregroundStyle={labelColor}>
+              {yearUsage.toFixed(0)}
+            </Text>
+            <Text font={11} fontWeight="regular" foregroundStyle={labelColor}>
+              度
+            </Text>
+          </HStack>
+        )
+      })()}
     </VStack>
   )
 }
@@ -419,7 +603,7 @@ function RowRenderer({
     rowNum === 1 ? settings.row1Display : rowNum === 2 ? settings.row2Display : settings.row3Display
 
   if (mode === 'step') {
-    return <StepRow step={vm.step} />
+    return <StepRow step={vm.step} yearUsage={vm.yearUsage} barStyle={settings.stepBarStyle} />
   }
 
   const groupNum = mode === 'group1' ? 1 : mode === 'group2' ? 2 : 3
@@ -620,6 +804,10 @@ function demoViewModel(): BillViewModel {
       threshold: 2520,
       step2: 2520,
       step3: 4800,
+      isOverLimit: false,
+      exceed: 0,
+      exceedPercent: 0,
+      maxScale: 4800,
     },
   }
 }

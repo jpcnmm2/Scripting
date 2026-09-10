@@ -103,6 +103,7 @@ export function buildStepInfo(
   totalEleNum: number,
   mode: SGCCSettings['stepMode'] = '年',
   override?: { step2?: number; step3?: number },
+  percentMode?: '全量' | '阶梯',
 ): StepInfo {
   // 设置里填了阈值就用设置的，否则按山东口径自动（按月 210/400，按年 2520/4800）
   const auto = stepThresholds(mode)
@@ -121,8 +122,29 @@ export function buildStepInfo(
   }
   usage = round2(usage)
 
-  // 百分比与横条/滑块同轴：统一按「占第三档上限 step3 的比例」，封顶 100%。
-  const percent = round2(Math.min(usage / step3, 1) * 100)
+  // 是否超出第三档
+  const isOverLimit = usage > step3
+  const exceed = isOverLimit ? round2(usage - step3) : 0
+  const exceedPercent = isOverLimit ? round2((usage / step3) * 100) : 0
+  // 进度条缩放上限：不超出时=step3，超出时=usage（动态扩展）
+  const maxScale = isOverLimit ? usage : step3
+
+  // 百分比计算方式
+  // 全量：占 maxScale 的比例
+  // 阶梯：当前阶梯内的进度
+  let percent: number
+  if (percentMode === '阶梯') {
+    if (usage < step2) {
+      percent = round2(Math.min(usage / step2, 1) * 100)
+    } else if (usage < step3) {
+      const span = step3 - step2
+      percent = span > 0 ? round2(Math.min((usage - step2) / span, 1) * 100) : 100
+    } else {
+      percent = 100
+    }
+  } else {
+    percent = round2(Math.min(usage / maxScale, 1) * 100)
+  }
 
   if (usage < step2) {
     return {
@@ -133,19 +155,27 @@ export function buildStepInfo(
       threshold: step2,
       step2,
       step3,
+      isOverLimit,
+      exceed,
+      exceedPercent,
+      maxScale,
     }
   }
 
   if (usage > step3) {
-    // 第三档已超过 step3，横条与百分比均已封顶（100%）
+    // 第三档已超过 step3，动态扩展进度条上限为 usage
     return {
       level: 3,
       usage,
       percent,
-      remain: 0,
+      remain: -exceed,
       threshold: step3,
       step2,
       step3,
+      isOverLimit,
+      exceed,
+      exceedPercent,
+      maxScale,
     }
   }
 
@@ -157,6 +187,10 @@ export function buildStepInfo(
     threshold: step3,
     step2,
     step3,
+    isOverLimit,
+    exceed,
+    exceedPercent,
+    maxScale,
   }
 }
 
@@ -170,6 +204,7 @@ export function buildViewModel(
     stepMode?: SGCCSettings['stepMode']
     step2?: number
     step3?: number
+    stepPercentMode?: '全量' | '阶梯'
   },
 ): BillViewModel {
   const dayElePq = normalizeDayEle(account)
@@ -219,7 +254,7 @@ export function buildViewModel(
     step: buildStepInfo(account, currentMonthEle, totalEleNum, meta.stepMode ?? '年', {
       step2: meta.step2,
       step3: meta.step3,
-    }),
+    }, meta.stepPercentMode),
   }
 }
 

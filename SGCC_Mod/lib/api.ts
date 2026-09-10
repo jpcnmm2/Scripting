@@ -94,6 +94,7 @@ export async function getBillData(
     stepMode: settings.stepMode,
     step2: settings.step2,
     step3: settings.step3,
+    stepPercentMode: settings.stepPercentMode,
   })
 }
 

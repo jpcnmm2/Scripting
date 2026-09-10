@@ -108,9 +108,9 @@ export interface StepInfo {
   level: 1 | 2 | 3
   /** 累计用电量（按计算口径） */
   usage: number
-  /** 已用电量占第三档上限 step3 的比例（封顶 100%），与横条/滑块同轴 */
+  /** 已用电量百分比（全量模式=占 maxScale，阶梯模式=当前阶梯内进度） */
   percent: number
-  /** 距下一档还剩多少度，已在第三档时为 0 */
+  /** 距下一档还剩多少度，已在第三档时为 0；超出第三档时为负数 */
   remain: number
   /** 本档位上限，第三档为 step3 */
   threshold: number
@@ -118,6 +118,14 @@ export interface StepInfo {
   step2: number
   /** 实际使用的第三档阈值（度） */
   step3: number
+  /** 是否超出第三档 */
+  isOverLimit: boolean
+  /** 超出第三档的度数（不超出时为 0） */
+  exceed: number
+  /** 超出百分比（超出度数占 step3 的比例，不超出时为 0） */
+  exceedPercent: number
+  /** 进度条缩放上限：不超出时=step3，超出时=usage（动态扩展） */
+  maxScale: number
 }
 
 /** 右侧面板可选择的指标项 */
@@ -153,6 +161,15 @@ export interface SGCCSettings {
   showBalanceForPostPaid: boolean
   /** 柱状图标注用电度数（仅 7 天以下生效，启用后柱子间距翻倍） */
   showChartValues: boolean
+  /** 国网 logo 边长（像素），默认 48 */
+  logoSize: number
+  /** 近日用电保留小数位数（0-2） */
+  dayFeeDecimals: number
+
+  /** 阶梯百分比计算方式：全量 = 占第三档比例，阶梯 = 当前阶梯内进度 */
+  stepPercentMode: '全量' | '阶梯'
+  /** 阶梯进度条样式：三色 = 三段渐变色，纯色 = 原始单色 */
+  stepBarStyle: '三色' | '纯色'
 
   /** 中号组件第一栏显示模式 */
   row1Display: RowDisplayMode
@@ -191,6 +208,10 @@ export const DEFAULT_SETTINGS: SGCCSettings = {
   showConsName: true,
   showBalanceForPostPaid: false,
   showChartValues: false,
+  logoSize: 48,
+  dayFeeDecimals: 2,
+  stepPercentMode: '全量',
+  stepBarStyle: '三色',
   row1Display: 'group1',
   row2Display: 'step',
   row3Display: 'group3',
