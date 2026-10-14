@@ -1,7 +1,7 @@
 /**
  * SGCC 国家电网 —— 数据类型定义
- * 数据来源：http://api.wsgw-rewrite.com/electricity/bill/all
- * 需配合 Surge / QuantumultX 等工具的 wsgw 重写抓取 token。
+ * 数据来源：网上国网 App 3.2.3 官方直连接口（SM2/SM3/SM4 + Turing 设备令牌），
+ * 返回结构与旧 wsgw 重写接口保持一致，业务层无需改动。
  */
 
 /** 接口原始结构（只声明我们实际用到的字段） */
@@ -145,9 +145,15 @@ export type RowDisplayMode = 'group1' | 'group2' | 'group3' | 'step'
 
 /** 组件可配置项 */
 export interface SGCCSettings {
+  /** 网上国网 App 登录手机号（官方直连接口） */
+  phone: string
+  /** 网上国网 App 登录密码（官方直连接口） */
+  password: string
+  /** 国网新设备验证的 6 位短信验证码 */
+  smsCode: string
   /** 账户下标，多户时选择第几户 */
   accountIndex: number
-  /** 数据刷新间隔（分钟） */
+  /** 数据刷新间隔（分钟），可选 240/360/480/720/1440，默认 480（8 小时） */
   interval: number
   /** 近日用电柱状图显示的天数 */
   dayAmount: number
@@ -200,8 +206,11 @@ export interface SGCCSettings {
 }
 
 export const DEFAULT_SETTINGS: SGCCSettings = {
+  phone: '',
+  password: '',
+  smsCode: '',
   accountIndex: 0,
-  interval: 360,
+  interval: 480,
   dayAmount: 7,
   chartColor: '#0db38e',
   accentColor: '#3A9690',

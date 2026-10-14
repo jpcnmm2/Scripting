@@ -219,8 +219,15 @@ export function buildViewModel(
   const accountBalance = round2(num(bill?.accountBalance))
   const remainFee = isPostPaid ? accountBalance : sumMoney
 
-  // 上期 = 最近一个已结算月份
-  const lastMonth = monthElePq.length > 0 ? monthElePq[monthElePq.length - 1] : undefined
+  // 上期 = 最近一个已结算月份（对齐原脚本逻辑：按月份排序、排除当月、取最近的有效月份）
+  // 不能直接取列表最后一个：接口 mothEleList 顺序不可靠，且可能包含当月未结算条目
+  const now = new Date()
+  const nowYm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
+  const sortedMonths = [...monthElePq].sort((a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : 0))
+  const validPastMonths = sortedMonths.filter(m => m.label < nowYm && (m.elePq > 0 || m.cost > 0))
+  const lastMonth = validPastMonths.length > 0
+    ? validPastMonths[validPastMonths.length - 1]
+    : (sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1] : undefined)
   const monthUsage = lastMonth ? lastMonth.elePq : 0
   const monthFee = lastMonth ? round2(lastMonth.cost) : 0
 

@@ -8,12 +8,11 @@
  * @author: 脑瓜
  * @feedback: https://t.me/Scriptable_CN
  * telegram: @anker1209
- * version: 2.3.3
- * update: 2026/08/11
+ * version: 2.3.4
+ * update: 2026/10/14
  * 原创UI，修改套用请注明来源
- * 使用该脚本需DmYY依赖及添加重写，重写修改自作者@Yuheng0101
- * 重写: https://raw.githubusercontent.com/dompling/Script/master/wsgw/index.js
- * 依赖: https://raw.githubusercontent.com/dompling/Scriptable/master/Scripts/DmYY.js
+ * 数据接口：网上国网 App 3.2.3 官方直连（SM2/SM3/SM4 + Turing 设备令牌），
+ * 移植自 Scriptable SGCC.js v2.3.4，无需 wsgw 重写与代理工具。
  *
  * 附：原脚本头部（Scriptable 专用，Scripting 中不生效，仅留档）——
  *   // Variables used by Scriptable.
@@ -459,7 +458,7 @@ function StepRow({ step, yearUsage, barStyle }: { step: BillViewModel['step']; y
             offset={{ x: sliderX, y: 0 }}
           />
         </ZStack>
-      )
+      )}
 
       {/* 年度电量标注：位于滑块正下方，与滑块中心对齐，左右边缘限位防溢出 */}
       {(() => {

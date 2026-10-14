@@ -12,9 +12,8 @@
  * version: 2.3.3
  * update: 2026/08/11
  * 原创UI，修改套用请注明来源
- * 使用该脚本需DmYY依赖及添加重写，重写修改自作者@Yuheng0101
- * 重写: https://raw.githubusercontent.com/dompling/Script/master/wsgw/index.js
- * 依赖: https://raw.githubusercontent.com/dompling/Scriptable/master/Scripts/DmYY.js
+ * 数据接口：网上国网 App 3.2.3 官方直连（SM2/SM3/SM4 + Turing 设备令牌），
+ * 移植自 Scriptable SGCC.js v2.3.4，无需 wsgw 重写与代理工具。
  */
 import {
   Script,
@@ -28,6 +27,7 @@ import {
   Picker,
   TextField,
   ColorPicker,
+  SecureField,
   HStack,
   Spacer,
   Widget,
@@ -35,7 +35,7 @@ import {
   type Color,
 } from 'scripting'
 import { loadSettings, saveSettings, resetSettings } from './lib/store'
-import { listAccounts } from './lib/api'
+import { listAccounts, sendSmsCode } from './lib/api'
 import { clearCache } from './lib/cache'
 import { DEFAULT_SETTINGS, type SGCCSettings, type MetricKey, type RowDisplayMode } from './lib/types'
 
@@ -169,13 +169,28 @@ function SettingsView() {
   const loadAccountList = async () => {
     if (loading) return
     setLoading(true)
-    setStatus('正在获取账户（首次可能较慢，受 wsgw 登录影响）…')
+    setStatus('正在登录国网获取账户…')
     try {
       const list = await listAccounts(loadSettings())
       setAccounts(list)
       setStatus(`已获取 ${list.length} 个账户`)
     } catch (e) {
       setStatus(`获取失败：${e instanceof Error ? e.message : e}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 触发国网下发新设备验证短信。用当前界面上的手机号/密码（不必先保存）
+  const sendSms = async () => {
+    if (loading) return
+    setLoading(true)
+    setStatus('正在请求国网发送短信验证码…')
+    try {
+      const masked = await sendSmsCode(settings)
+      setStatus(`验证码已发送至 ${masked}，收到后填入下方「短信验证码」并点右上角保存，再点「获取账户列表」`)
+    } catch (e) {
+      setStatus(`发送失败：${e instanceof Error ? e.message : e}`)
     } finally {
       setLoading(false)
     }
@@ -192,10 +207,43 @@ function SettingsView() {
         }}
       >
         <Section
+          header={<Text>国网 App 官方接口</Text>}
+          footer={
+            <Text font="caption">
+              直连国网 App 官方接口，无需代理重写。填写手机号与登录密码后点右上角「保存」，再点「获取账户列表」。首次登录新设备时国网会要求短信验证：点「发送短信验证码」，收到后填入验证码并保存，重新获取即可。账号仅保存在本机脚本私有存储。
+            </Text>
+          }
+        >
+          <TextField
+            title="手机号"
+            prompt="网上国网 App 登录手机号"
+            value={settings.phone}
+            onChanged={v => patch('phone', v)}
+          />
+          <SecureField
+            title="登录密码"
+            prompt="网上国网 App 登录密码"
+            value={settings.password}
+            onChanged={v => patch('password', v)}
+          />
+          <Button
+            title={loading ? '发送中…' : '发送短信验证码'}
+            action={sendSms}
+            disabled={loading}
+          />
+          <TextField
+            title="短信验证码"
+            prompt="新设备验证时填入 6 位验证码"
+            value={settings.smsCode}
+            onChanged={v => patch('smsCode', v)}
+          />
+        </Section>
+
+        <Section
           header={<Text>账户</Text>}
           footer={
             <Text font="caption">
-              多户时选择要显示的账户。需先点击「获取账户列表」。
+              需先在上方「国网 App 官方接口」配置并保存账号，再点击「获取账户列表」。多户时选择要显示的账户。
             </Text>
           }
         >
@@ -382,7 +430,7 @@ function SettingsView() {
           header={<Text>数据</Text>}
           footer={
             <Text font="caption">
-              刷新间隔越短越耗流量。数据依赖 wsgw 重写抓取的接口。
+              刷新间隔越短越耗流量。数据来自国网 App 官方直连接口。「清除缓存」会同时清空登录会话，下次刷新需重新登录。
             </Text>
           }
         >
@@ -392,9 +440,9 @@ function SettingsView() {
             onChanged={(v: number) => patch('interval', v)}
             pickerStyle="menu"
           >
-            {[60, 120, 240, 360, 720, 1440].map(n => (
+            {[240, 360, 480, 720, 1440].map(n => (
               <Text key={String(n)} tag={n}>
-                {n >= 60 ? `${n / 60} 小时` : `${n} 分钟`}
+                {`${n / 60} 小时`}
               </Text>
             ))}
           </Picker>
