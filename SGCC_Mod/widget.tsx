@@ -735,7 +735,7 @@ function RightPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSetting
 function WidgetView({ vm, logoImage }: { vm: BillViewModel; logoImage?: UIImage | null }) {
   return (
     <HStack spacing={0} widgetBackground={panelBg}>
-      <VStack spacing={0} frame={{ width: PANEL_WIDTH }} background={bg}>
+      <VStack spacing={0} frame={{ width: PANEL_WIDTH }} widgetBackground={bg}>
         <LeftPanel vm={vm} settings={settings} logoImage={logoImage} />
       </VStack>
       <RightPanel vm={vm} settings={settings} />
