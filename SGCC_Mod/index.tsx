@@ -30,8 +30,11 @@ import {
   SecureField,
   HStack,
   Spacer,
+  Image,
   Widget,
   useState,
+  useObservable,
+  NavigationDestination,
   type Color,
 } from 'scripting'
 import { loadSettings, saveSettings, resetSettings } from './lib/store'
@@ -141,12 +144,199 @@ function groupContentPickers(settings: SGCCSettings, patch: PatchFn): JSX.Elemen
   return items
 }
 
+interface DisplaySettingsProps {
+  settings: SGCCSettings
+  patch: PatchFn
+  save: () => void
+}
+
+/** 二级页：显示样式 / 三栏内容 / 阶梯 集中配置 */
+function DisplaySettingsView({ settings, patch, save }: DisplaySettingsProps) {
+  return (
+    <List
+      navigationTitle="显示设置"
+      navigationBarTitleDisplayMode="inline"
+      toolbar={{
+        confirmationAction: <Button title="保存" action={save} />,
+      }}
+    >
+      <Section
+        header={<Text>显示</Text>}
+        footer={<Text font="caption">柱状图展示最近若干天的用电量。「柱状图显示度数」仅适用于 7 天及以下，启用后在柱顶标注度数。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
+      >
+        <Picker
+          title="国网 Logo 尺寸"
+          value={settings.logoSize}
+          onChanged={(v: number) => patch('logoSize', v)}
+          pickerStyle="menu"
+        >
+          {[40, 42, 44, 46, 48, 50, 52, 54, 56].map(n => (
+            <Text key={String(n)} tag={n}>
+              {`${n}`}
+            </Text>
+          ))}
+        </Picker>
+        <Toggle
+          title="显示户名"
+          value={settings.showConsName}
+          onChanged={v => patch('showConsName', v)}
+        />
+        <Toggle
+          title="左栏显示余额"
+          value={settings.showBalanceForPostPaid}
+          onChanged={v => patch('showBalanceForPostPaid', v)}
+        />
+        <Toggle
+          title="柱状图显示度数（≤7天）"
+          value={settings.showChartValues}
+          onChanged={v => patch('showChartValues', v)}
+        />
+        <Picker
+          title="柱状图天数"
+          value={settings.dayAmount}
+          onChanged={(v: number) => patch('dayAmount', v)}
+          pickerStyle="menu"
+        >
+          {[5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => (
+            <Text key={String(n)} tag={n}>
+              {`${n} 天`}
+            </Text>
+          ))}
+        </Picker>
+        <Picker
+          title="近日用电小数位"
+          value={settings.dayFeeDecimals}
+          onChanged={(v: number) => patch('dayFeeDecimals', v)}
+          pickerStyle="menu"
+        >
+          {[0, 1, 2].map(n => (
+            <Text key={String(n)} tag={n}>
+              {n === 0 ? '整数' : `${n} 位`}
+            </Text>
+          ))}
+        </Picker>
+        <HStack>
+          <Text>阶梯口径</Text>
+          <Spacer />
+          <Text foregroundStyle="secondaryLabel">按年累计</Text>
+        </HStack>
+        <ColorPicker
+          title="柱状图颜色"
+          value={settings.chartColor as Color}
+          onChanged={v => patch('chartColor', v as string)}
+          supportsOpacity={false}
+        />
+        <ColorPicker
+          title="主题色"
+          value={settings.accentColor as Color}
+          onChanged={v => patch('accentColor', v as string)}
+          supportsOpacity={false}
+        />
+      </Section>
+
+      <Section
+        header={<Text>三栏模式</Text>}
+        footer={<Text font="caption">第一栏/第二栏/第三栏分别选择显示「组合一/二/三」或「阶梯电量」。改动后请点右上角「保存」生效。</Text>}
+      >
+        {rowModePickers(settings, patch)}
+      </Section>
+
+      <Section
+        header={<Text>组合内容</Text>}
+        footer={<Text font="caption">为组合一/二/三分别配置左栏和右栏的显示内容。当某栏选择了对应组合时，将使用这里的配置。改动后请点右上角「保存」生效。</Text>}
+      >
+        {groupContentPickers(settings, patch)}
+      </Section>
+
+      <Section
+        header={<Text>阶梯电量</Text>}
+        footer={
+          <Text font="caption">
+            按你的实际电表档位填写，单位度。留空表示按山东口径自动（按年累计 2520/4800 度）。「阶梯百分比」选择计算方式：全量 = 占第三档上限的比例（与横条滑块同轴），阶梯 = 当前阶梯内的进度。改动后请点右上角「保存」生效。
+          </Text>
+        }
+      >
+        <TextField
+          title="第二档阈值（度）"
+          prompt="0 = 自动"
+          value={settings.step2 > 0 ? String(settings.step2) : ''}
+          onChanged={v => patch('step2', parseInt(v, 10) || 0)}
+        />
+        <TextField
+          title="第三档阈值（度）"
+          prompt="0 = 自动"
+          value={settings.step3 > 0 ? String(settings.step3) : ''}
+          onChanged={v => patch('step3', parseInt(v, 10) || 0)}
+        />
+        <Picker
+          title="阶梯百分比"
+          value={settings.stepPercentMode}
+          onChanged={(v: string) => patch('stepPercentMode', v as '全量' | '阶梯')}
+          pickerStyle="menu"
+        >
+          <Text tag="全量">全量（占第三档比例）</Text>
+          <Text tag="阶梯">阶梯（当前阶梯进度）</Text>
+        </Picker>
+        <Picker
+          title="进度条样式"
+          value={settings.stepBarStyle}
+          onChanged={(v: string) => patch('stepBarStyle', v as '三色' | '纯色')}
+          pickerStyle="menu"
+        >
+          <Text tag="三色">三色（渐变过渡）</Text>
+          <Text tag="纯色">纯色（原始单色）</Text>
+        </Picker>
+      </Section>
+    </List>
+  )
+}
+
+interface MultiConfigProps {
+  settings: SGCCSettings
+  patchAccName: (index: number, value: string) => void
+  save: () => void
+}
+
+/** 二级页：多户配置（户 1/2/3 自定义名称） */
+function MultiConfigView({ settings, patchAccName, save }: MultiConfigProps) {
+  return (
+    <List
+      navigationTitle="多户配置"
+      navigationBarTitleDisplayMode="inline"
+      toolbar={{
+        confirmationAction: <Button title="保存" action={save} />,
+      }}
+    >
+      <Section
+        header={<Text>多户配置</Text>}
+        footer={
+          <Text font="caption">
+            给每个账户起个能区分的名字。桌面上放多个小组件时，在每个小组件的「参数」里填对应的户名（或 1/2/3），该小组件就会固定显示这一户。以下「户 1/2/3」按「当前账户」列表的顺序对应。改完记得点右上角「保存」。
+          </Text>
+        }
+      >
+        {[0, 1, 2].map(i => (
+          <TextField
+            key={i}
+            title={`户 ${i + 1} 名称`}
+            prompt="留空显示实际户名"
+            value={settings.accNames[i] ?? ''}
+            onChanged={v => patchAccName(i, v)}
+          />
+        ))}
+      </Section>
+    </List>
+  )
+}
+
 function SettingsView() {
   const dismiss = Navigation.useDismiss()
   const [settings, setSettings] = useState<SGCCSettings>(loadSettings)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
+  // 二级页面推送栈：空=根页，['display']=显示设置页
+  const path = useObservable<string[]>([])
 
   const patch = <K extends keyof SGCCSettings>(key: K, value: SGCCSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -197,10 +387,23 @@ function SettingsView() {
   }
 
   return (
-    <NavigationStack>
+    <NavigationStack path={path}>
       <List
         navigationTitle="国家电网"
         navigationBarTitleDisplayMode="inline"
+        navigationDestination={
+          <NavigationDestination>
+            {(page: string) =>
+              page === 'display' ? (
+                <DisplaySettingsView settings={settings} patch={patch} save={save} />
+              ) : page === 'names' ? (
+                <MultiConfigView settings={settings} patchAccName={patchAccName} save={save} />
+              ) : (
+                <List navigationTitle="" />
+              )
+            }
+          </NavigationDestination>
+        }
         toolbar={{
           cancellationAction: <Button title="关闭" action={dismiss} />,
           confirmationAction: <Button title="保存" action={save} />,
@@ -279,151 +482,48 @@ function SettingsView() {
           ) : null}
         </Section>
 
-        <Section
-          header={<Text>多户配置</Text>}
-          footer={
-            <Text font="caption">
-              给每个账户起个能区分的名字。桌面上放多个小组件时，在每个小组件的「参数」里填对应的户名（或 1/2/3），该小组件就会固定显示这一户。以下「户 1/2/3」按上面「当前账户」列表的顺序对应。改完记得点右上角「保存」。
-            </Text>
-          }
-        >
-          {[0, 1, 2].map(i => (
-            <TextField
-              key={i}
-              title={`户 ${i + 1} 名称`}
-              prompt="留空显示实际户名"
-              value={settings.accNames[i] ?? ''}
-              onChanged={v => patchAccName(i, v)}
-            />
-          ))}
+        <Section>
+          <Button
+            action={() => path.setValue(['names'])}
+          >
+            <HStack>
+              <Image
+                systemName="person.2"
+                imageScale="medium"
+                foregroundStyle={{ light: '#0DB38E', dark: '#6BE3C2' }}
+                frame={{ width: 28, alignment: 'center' }}
+              />
+              <Text>多户配置</Text>
+              <Spacer />
+              <Image
+                systemName="chevron.right"
+                imageScale="small"
+                foregroundStyle={{ light: '#8E8E93', dark: '#48484A' }}
+              />
+            </HStack>
+          </Button>
         </Section>
 
-        <Section
-          header={<Text>显示</Text>}
-          footer={<Text font="caption">柱状图展示最近若干天的用电量。「柱状图显示度数」仅适用于 7 天及以下，启用后在柱顶标注度数。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
-        >
-          <Picker
-            title="国网 Logo 尺寸"
-            value={settings.logoSize}
-            onChanged={(v: number) => patch('logoSize', v)}
-            pickerStyle="menu"
+        <Section>
+          <Button
+            action={() => path.setValue(['display'])}
           >
-            {[40, 42, 44, 46, 48, 50, 52, 54, 56].map(n => (
-              <Text key={String(n)} tag={n}>
-                {`${n}`}
-              </Text>
-            ))}
-          </Picker>
-          <Toggle
-            title="显示户名"
-            value={settings.showConsName}
-            onChanged={v => patch('showConsName', v)}
-          />
-          <Toggle
-            title="左栏显示余额"
-            value={settings.showBalanceForPostPaid}
-            onChanged={v => patch('showBalanceForPostPaid', v)}
-          />
-          <Toggle
-            title="柱状图显示度数（≤7天）"
-            value={settings.showChartValues}
-            onChanged={v => patch('showChartValues', v)}
-          />
-          <Picker
-            title="柱状图天数"
-            value={settings.dayAmount}
-            onChanged={(v: number) => patch('dayAmount', v)}
-            pickerStyle="menu"
-          >
-            {[5, 6, 7, 8, 9, 10, 11, 12, 14].map(n => (
-              <Text key={String(n)} tag={n}>
-                {`${n} 天`}
-              </Text>
-            ))}
-          </Picker>
-          <Picker
-            title="近日用电小数位"
-            value={settings.dayFeeDecimals}
-            onChanged={(v: number) => patch('dayFeeDecimals', v)}
-            pickerStyle="menu"
-          >
-            {[0, 1, 2].map(n => (
-              <Text key={String(n)} tag={n}>
-                {n === 0 ? '整数' : `${n} 位`}
-              </Text>
-            ))}
-          </Picker>
-          <HStack>
-            <Text>阶梯口径</Text>
-            <Spacer />
-            <Text foregroundStyle="secondaryLabel">按年累计</Text>
-          </HStack>
-          <ColorPicker
-            title="柱状图颜色"
-            value={settings.chartColor as Color}
-            onChanged={v => patch('chartColor', v as string)}
-            supportsOpacity={false}
-          />
-          <ColorPicker
-            title="主题色"
-            value={settings.accentColor as Color}
-            onChanged={v => patch('accentColor', v as string)}
-            supportsOpacity={false}
-          />
-        </Section>
-
-        <Section
-          header={<Text>三栏模式</Text>}
-          footer={<Text font="caption">第一栏/第二栏/第三栏分别选择显示「组合一/二/三」或「阶梯电量」。改动后请点右上角「保存」生效。</Text>}
-        >
-          {rowModePickers(settings, patch)}
-        </Section>
-
-        <Section
-          header={<Text>组合内容</Text>}
-          footer={<Text font="caption">为组合一/二/三分别配置左栏和右栏的显示内容。当某栏选择了对应组合时，将使用这里的配置。改动后请点右上角「保存」生效。</Text>}
-        >
-          {groupContentPickers(settings, patch)}
-        </Section>
-
-        <Section
-          header={<Text>阶梯</Text>}
-          footer={
-            <Text font="caption">
-              按你的实际电表档位填写，单位度。留空表示按山东口径自动（按年累计 2520/4800 度）。「阶梯百分比」选择计算方式：全量 = 占第三档上限的比例（与横条滑块同轴），阶梯 = 当前阶梯内的进度。改动后请点右上角「保存」生效。
-            </Text>
-          }
-        >
-          <TextField
-            title="第二档阈值（度）"
-            prompt="0 = 自动"
-            value={settings.step2 > 0 ? String(settings.step2) : ''}
-            onChanged={v => patch('step2', parseInt(v, 10) || 0)}
-          />
-          <TextField
-            title="第三档阈值（度）"
-            prompt="0 = 自动"
-            value={settings.step3 > 0 ? String(settings.step3) : ''}
-            onChanged={v => patch('step3', parseInt(v, 10) || 0)}
-          />
-          <Picker
-            title="阶梯百分比"
-            value={settings.stepPercentMode}
-            onChanged={(v: string) => patch('stepPercentMode', v as '全量' | '阶梯')}
-            pickerStyle="menu"
-          >
-            <Text tag="全量">全量（占第三档比例）</Text>
-            <Text tag="阶梯">阶梯（当前阶梯进度）</Text>
-          </Picker>
-          <Picker
-            title="进度条样式"
-            value={settings.stepBarStyle}
-            onChanged={(v: string) => patch('stepBarStyle', v as '三色' | '纯色')}
-            pickerStyle="menu"
-          >
-            <Text tag="三色">三色（渐变过渡）</Text>
-            <Text tag="纯色">纯色（原始单色）</Text>
-          </Picker>
+            <HStack>
+              <Image
+                systemName="slider.horizontal.3"
+                imageScale="medium"
+                foregroundStyle={{ light: '#0DB38E', dark: '#6BE3C2' }}
+                frame={{ width: 28, alignment: 'center' }}
+              />
+              <Text>显示设置</Text>
+              <Spacer />
+              <Image
+                systemName="chevron.right"
+                imageScale="small"
+                foregroundStyle={{ light: '#8E8E93', dark: '#48484A' }}
+              />
+            </HStack>
+          </Button>
         </Section>
 
         <Section
